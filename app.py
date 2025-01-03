@@ -11,7 +11,7 @@ class TestDataGenerator:
         
     def generate_content(self, content_type, specifications):
         prompt = f"Generate {content_type} content with these specifications: {specifications}"
-        response = self.client.generate(model="llama2:8b", prompt=prompt)
+        response = self.client.generate(model="llama3.1:8b", prompt=prompt)
         return response['response']
     
     def create_pdf_with_tables(self, num_tables, rows_per_table):
