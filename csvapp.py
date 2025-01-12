@@ -74,7 +74,7 @@ class ContextAwareColumnSpec:
             return self._fallback_generation()
     
     def _create_prompt(self) -> str:
-        base_prompt = f"Generate a single {self.data_type} value for column '{self.name}'. "
+        base_prompt = f"Generate a single {self.data_type} value for column '{self.name}'.Generate only one value and nothing else. do not put the vale in quotes. "
         context_prompt = f"Context: {self.context}"
         constraints = self._get_constraints()
         return f"{base_prompt}{context_prompt}{constraints}"
