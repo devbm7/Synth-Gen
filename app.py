@@ -61,11 +61,11 @@ class ContextAwareColumnSpec:
         self.params = params
         self.deform_rate = deform_rate
         
-    def generate_value(self, client: Client, missing_rate: float,correlated_prompt:str) -> Any:
+    def generate_value(self, client: Client, missing_rate: float) -> Any:
         if random.random() < missing_rate:
             return None
             
-        prompt = self._create_prompt(correlated_prompt)
+        prompt = self._create_prompt()
         try:
             response = client.generate(model="llama3.1:8b", prompt=prompt)
             value = self._process_response(response['response'].strip())
@@ -73,11 +73,11 @@ class ContextAwareColumnSpec:
         except:
             return self._fallback_generation()
     
-    def _create_prompt(self,correlated_prompt) -> str:
+    def _create_prompt(self) -> str:
         base_prompt = f"Generate a single {self.data_type} value for column '{self.name}'.Generate only one value and nothing else. do not put the value in quotes. "
         context_prompt = f"Context: {self.context}"
         constraints = self._get_constraints()
-        return f"{base_prompt}{context_prompt}{constraints}{correlated_prompt}"
+        return f"{base_prompt}{context_prompt}{constraints}"
     
     def _get_constraints(self) -> str:
         if self.data_type in ["integer", "float"]:
@@ -109,32 +109,89 @@ class ContextAwareColumnSpec:
             return random.choice(self.params.get("categories", ["A", "B", "C"]))
         return "fallback_value"
 
+class CorrelationRules:
+    @staticmethod
+    def calculate_age(birth_date: str) -> int:
+        birth_year = int(birth_date.split('-')[0])
+        current_year = datetime.now().year
+        return current_year - birth_year
+    
+    @staticmethod
+    def calculate_birth_date(age: int) -> str:
+        birth_year = datetime.now().year - age
+        return f"{birth_year}-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}"
+    
+    @staticmethod
+    def get_gender_from_name(name: str, client: Client) -> str:
+        prompt = f"What is the most likely gender (Male or Female) for the name: {name}? Reply with just 'Male' or 'Female'"
+        try:
+            response = client.generate(model="llama3.1:8b", prompt=prompt)
+            gender = response['response'].strip().upper()
+            return gender if gender in ['MALE', 'FEMALE'] else random.choice(['MALE', 'FEMALE'])
+        except:
+            return random.choice(['MALE', 'FEMALE'])
+    
+    @staticmethod
+    def get_name_for_gender(gender: str, client: Client, is_first_name: bool = True) -> str:
+        name_type = "first name" if is_first_name else "last name"
+        prompt = f"Generate one {gender.lower()} {name_type}. Reply with just the name."
+        try:
+            response = client.generate(model="llama3.1:8b", prompt=prompt)
+            return response['response'].strip()
+        except:
+            return f"{'First' if is_first_name else 'Last'}Name"
+
 class CorrelationManager:
     def __init__(self, global_context: str):
         self.correlations = self._parse_correlations(global_context)
+        self.generated_values = {}
         
-    def _parse_correlations(self, context: str) -> Dict[str, List[str]]:
+    def _parse_correlations(self, context: str) -> Dict[str, Dict[str, str]]:
         correlations = {}
-        # Parse correlation rules from context like "Correlate: first_name,last_name,gender; age,birth_date"
-        if "Correlate:" in context:
-            rules = context.split("Correlate:")[1].split(";")
-            for rule in rules:
-                if ":" in rule:
-                    columns = [col.strip() for col in rule.split(":")[1].split(",")]
-                    correlations[columns[0]] = columns[1:]
+        if "Correlate:" not in context:
+            return correlations
+            
+        rules = context.split("Correlate:")[1].split(";")
+        for rule in rules:
+            if ":" in rule:
+                rule_parts = rule.strip().split(":")
+                primary = rule_parts[0].strip()
+                dependents = [dep.strip() for dep in rule_parts[1].split(",")]
+                correlations[primary] = {
+                    "type": "logical",
+                    "dependents": dependents
+                }
         return correlations
     
-    def get_correlated_prompt(self, column: ContextAwareColumnSpec, row_values: Dict[str, Any]) -> str:
-        correlated_cols = []
-        for primary, dependencies in self.correlations.items():
-            if column.name in dependencies and primary in row_values:
-                correlated_cols.append(f"{primary}={row_values[primary]}")
-            elif column.name == primary and any(dep in row_values for dep in dependencies):
-                correlated_cols.extend(f"{dep}={row_values[dep]}" for dep in dependencies if dep in row_values)
+    def handle_correlation(self, column_name: str, value: Any, client: Client) -> Dict[str, Any]:
+        correlated_values = {}
         
-        if correlated_cols:
-            return f" Consider correlations: {', '.join(correlated_cols)}."
-        return ""
+        # Age and Birth Date correlation
+        if column_name == "age" and "birth_date" in self.get_correlated_columns(column_name):
+            correlated_values["birth_date"] = CorrelationRules.calculate_birth_date(int(value))
+        elif column_name == "birth_date" and "age" in self.get_correlated_columns(column_name):
+            correlated_values["age"] = CorrelationRules.calculate_age(str(value))
+            
+        # Name and Gender correlation
+        if column_name == "first_name" and "gender" in self.get_correlated_columns(column_name):
+            correlated_values["gender"] = CorrelationRules.get_gender_from_name(str(value), client)
+        elif column_name == "gender":
+            if "first_name" in self.get_correlated_columns(column_name):
+                correlated_values["first_name"] = CorrelationRules.get_name_for_gender(str(value), client, True)
+            if "last_name" in self.get_correlated_columns(column_name):
+                correlated_values["last_name"] = CorrelationRules.get_name_for_gender(str(value), client, False)
+        
+        return correlated_values
+    
+    def get_correlated_columns(self, column_name: str) -> List[str]:
+        correlated = []
+        for primary, info in self.correlations.items():
+            if primary == column_name:
+                correlated.extend(info["dependents"])
+            elif column_name in info["dependents"]:
+                correlated.append(primary)
+        return correlated
+    
 
 class DataAnalyzer:
     @staticmethod
@@ -211,17 +268,30 @@ class TestDataGenerator:
                                global_context: str) -> pd.DataFrame:
         correlation_manager = CorrelationManager(global_context)
         data = []
+        
         for _ in range(num_rows):
             row = {}
-            # Generate primary columns first
+            processed_columns = set()
+            
+            # Process primary columns first
             for col in columns:
-                if col.name in correlation_manager.correlations:
-                    row[col.name] = col.generate_value(self.client, missing_rate, correlation_manager.get_correlated_prompt(col, row))
-            # Then generate dependent columns
+                if col.name in correlation_manager.correlations and col.name not in processed_columns:
+                    value = col.generate_value(self.client, missing_rate)
+                    row[col.name] = value
+                    processed_columns.add(col.name)
+                    
+                    # Generate correlated values
+                    correlated_values = correlation_manager.handle_correlation(col.name, value, self.client)
+                    row.update(correlated_values)
+                    processed_columns.update(correlated_values.keys())
+            
+            # Process remaining columns
             for col in columns:
-                if col.name not in row:
-                    row[col.name] = col.generate_value(self.client, missing_rate, correlation_manager.get_correlated_prompt(col, row))
+                if col.name not in processed_columns:
+                    row[col.name] = col.generate_value(self.client, missing_rate)
+            
             data.append(row)
+        
         return pd.DataFrame(data)
 
 def get_advanced_params(data_type: str, index: int, defaults: Dict = None) -> Dict[str, Any]:
@@ -307,13 +377,20 @@ def sidebar_controls(inferred_specs: List[ContextAwareColumnSpec] = None):
 
 def main():
     st.title("Context-Aware Test Data Generator")
-       
+
     st.markdown("""
-    ### Correlation Syntax
-    Use 'Correlate:' in global context to define correlations:
-    - `Correlate: first_name,last_name,gender` - Names correlate with gender
-    - `Correlate: birth_date:age` - Birth date determines age
-    Multiple correlations can be separated by semicolons.
+    ### Correlation Syntax Guide
+    Use 'Correlate:' in global context to define correlations. Examples:
+    
+    ```
+    Correlate: age:birth_date
+    Correlate: gender:first_name,last_name
+    ```
+    
+    Supported correlations:
+    - age ↔ birth_date: Maintains mathematical consistency
+    - gender ↔ first_name: Ensures gender-appropriate names
+    - gender ↔ last_name: Maintains cultural consistency
     """)
     
     uploaded_file = st.file_uploader("Upload CSV file (optional)", type="csv")
