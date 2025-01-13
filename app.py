@@ -61,23 +61,23 @@ class ContextAwareColumnSpec:
         self.params = params
         self.deform_rate = deform_rate
         
-    def generate_value(self, client: Client, missing_rate: float) -> Any:
+    def generate_value(self, client: Client, missing_rate: float,correlated_prompt:str) -> Any:
         if random.random() < missing_rate:
             return None
             
-        prompt = self._create_prompt()
+        prompt = self._create_prompt(correlated_prompt)
         try:
-            response = client.generate(model="llama3.2:1b", prompt=prompt)
+            response = client.generate(model="llama3.1:8b", prompt=prompt)
             value = self._process_response(response['response'].strip())
             return DeformationRules.apply_deformation(value, self.data_type, self.deform_rate, self.params)
         except:
             return self._fallback_generation()
     
-    def _create_prompt(self) -> str:
-        base_prompt = f"Generate a single {self.data_type} value for column '{self.name}'.Generate only one value and nothing else. do not put the vale in quotes. "
+    def _create_prompt(self,correlated_prompt) -> str:
+        base_prompt = f"Generate a single {self.data_type} value for column '{self.name}'.Generate only one value and nothing else. do not put the value in quotes. "
         context_prompt = f"Context: {self.context}"
         constraints = self._get_constraints()
-        return f"{base_prompt}{context_prompt}{constraints}"
+        return f"{base_prompt}{context_prompt}{constraints}{correlated_prompt}"
     
     def _get_constraints(self) -> str:
         if self.data_type in ["integer", "float"]:
@@ -108,6 +108,33 @@ class ContextAwareColumnSpec:
         elif self.data_type == "categorical":
             return random.choice(self.params.get("categories", ["A", "B", "C"]))
         return "fallback_value"
+
+class CorrelationManager:
+    def __init__(self, global_context: str):
+        self.correlations = self._parse_correlations(global_context)
+        
+    def _parse_correlations(self, context: str) -> Dict[str, List[str]]:
+        correlations = {}
+        # Parse correlation rules from context like "Correlate: first_name,last_name,gender; age,birth_date"
+        if "Correlate:" in context:
+            rules = context.split("Correlate:")[1].split(";")
+            for rule in rules:
+                if ":" in rule:
+                    columns = [col.strip() for col in rule.split(":")[1].split(",")]
+                    correlations[columns[0]] = columns[1:]
+        return correlations
+    
+    def get_correlated_prompt(self, column: ContextAwareColumnSpec, row_values: Dict[str, Any]) -> str:
+        correlated_cols = []
+        for primary, dependencies in self.correlations.items():
+            if column.name in dependencies and primary in row_values:
+                correlated_cols.append(f"{primary}={row_values[primary]}")
+            elif column.name == primary and any(dep in row_values for dep in dependencies):
+                correlated_cols.extend(f"{dep}={row_values[dep]}" for dep in dependencies if dep in row_values)
+        
+        if correlated_cols:
+            return f" Consider correlations: {', '.join(correlated_cols)}."
+        return ""
 
 class DataAnalyzer:
     @staticmethod
@@ -182,11 +209,18 @@ class TestDataGenerator:
     def create_context_aware_csv(self, columns: List[ContextAwareColumnSpec], 
                                num_rows: int, missing_rate: float, 
                                global_context: str) -> pd.DataFrame:
+        correlation_manager = CorrelationManager(global_context)
         data = []
         for _ in range(num_rows):
             row = {}
+            # Generate primary columns first
             for col in columns:
-                row[col.name] = col.generate_value(self.client, missing_rate)
+                if col.name in correlation_manager.correlations:
+                    row[col.name] = col.generate_value(self.client, missing_rate, correlation_manager.get_correlated_prompt(col, row))
+            # Then generate dependent columns
+            for col in columns:
+                if col.name not in row:
+                    row[col.name] = col.generate_value(self.client, missing_rate, correlation_manager.get_correlated_prompt(col, row))
             data.append(row)
         return pd.DataFrame(data)
 
@@ -273,6 +307,14 @@ def sidebar_controls(inferred_specs: List[ContextAwareColumnSpec] = None):
 
 def main():
     st.title("Context-Aware Test Data Generator")
+       
+    st.markdown("""
+    ### Correlation Syntax
+    Use 'Correlate:' in global context to define correlations:
+    - `Correlate: first_name,last_name,gender` - Names correlate with gender
+    - `Correlate: birth_date:age` - Birth date determines age
+    Multiple correlations can be separated by semicolons.
+    """)
     
     uploaded_file = st.file_uploader("Upload CSV file (optional)", type="csv")
     if uploaded_file:
