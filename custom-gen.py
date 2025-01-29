@@ -75,7 +75,7 @@ def main():
             messages=[
                 {
                     'role': 'user',
-                    'content': "Give me two data points for given data class. Respond to JSON format.",
+                    'content': "Give me 100 data points for given data class. Respond to JSON format.",
                 }
             ],
             model=MODEL_NAME,
