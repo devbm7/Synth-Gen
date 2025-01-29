@@ -2,3 +2,4 @@
 .codegpt
 server_logs.log
 logs/
+data/
