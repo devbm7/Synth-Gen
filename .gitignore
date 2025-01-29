@@ -1,3 +1,4 @@
 /v1
 .codegpt
 server_logs.log
+logs/
