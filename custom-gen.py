@@ -8,7 +8,7 @@ from pathlib import Path
 
 LOG_DIR = "logs"
 DATA_DIR = "data"
-MODEL_NAME = "llama3.2:1b"
+MODEL_NAME = "llama3.2:3b"
 
 logging.basicConfig(
     filename=f"{LOG_DIR}/custom-gen.log",
@@ -24,6 +24,18 @@ class Country(BaseModel):
 
 class CountryList(BaseModel):
     countries: list[Country]
+
+class Movies(BaseModel):
+    movie_name: str
+    movie_release_date: datetime
+    movie_genre: list[str]
+    movie_director: str
+    movie_lead_cast: list[str]
+    movie_production_cost: float
+    movie_total_revenue: float
+
+class MoviesList(BaseModel):
+    movies: list[Movies]
 
 class ToolCall:
     def __init__(self, function):
@@ -75,33 +87,34 @@ def main():
             messages=[
                 {
                     'role': 'user',
-                    'content': "Give me 100 data points for given data class. Respond to JSON format.",
+                    'content': "Give me 5 data points for given data class for Hollywood movies starring Tom Cruise. Respond to JSON format.",
                 }
             ],
             model=MODEL_NAME,
-            format=CountryList.model_json_schema()
+            format=MoviesList.model_json_schema()
         )
         logging.info("TOKEN SPEED: %s tokens/s", format((response.eval_count / response.eval_duration)*(10**9), ".5g"))
         logging.info("FULL RESPONSE: %s", response)
-        country = CountryList.model_validate_json(response.message.content)
+        country = MoviesList.model_validate_json(response.message.content)
         logging.info(f"\n{country}")
         # json_data = json.dumps(country.model_dump(), indent=4)
         # with open(f"{DATA_DIR}/countries.json", "w") as file:
         #     file.write(json_data)
         #     file.close()
-        save_data(country.model_dump(), f"{DATA_DIR}/countries.json")
+        # save_data(country.model_dump(), f"{DATA_DIR}/countries.json")
 
         ### Using ToolCall and Function classes for function calls to model
         do_function_calling = False
         if do_function_calling:
             response = chat(model="llama3.2:1b", tools=[add_two_numbers], messages=[{"role": "user", "content": "What is addition of 2 and 5?"}])
             logging.debug("DEBUG ADD TWO NUMBERS RESPONSE: \n", response, "\n\n")
+            print("DEBUG ADD TWO NUMBERS RESPONSE: \n", response, "\n\n")
             tool_call = response.message.tool_calls[0]
             function = Function(tool_call.function.name, tool_call.function.arguments)
             function_name = function.name
             function_args = function.arguments
             if function_name == "add_two_numbers":
-                result = add_two_numbers(function_args["a"], function_args["b"])
+                result = add_two_numbers(int(function_args["a"]), int(function_args["b"]))
                 logging.info(f"Addition of {function_args} is {result}")
 
         logging.debug("Script Ended")
