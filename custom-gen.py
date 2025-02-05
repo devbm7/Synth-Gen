@@ -37,6 +37,26 @@ class Movies(BaseModel):
 class MoviesList(BaseModel):
     movies: list[Movies]
 
+class Demographics(BaseModel):
+    country_name: str
+    state: str
+    state_code: int
+    total_population: int
+    male_population: int
+    female_population: int
+
+class DemographicsList(BaseModel):
+    demographics: list[Demographics]
+
+class HeartAttack:
+    age: int
+    gender: str
+    region: str
+    smoking_history: bool
+    diabetes_history: bool
+    hypertension_history: bool
+    cholestrol_level: float
+
 class ToolCall:
     def __init__(self, function):
         self.function = function
@@ -87,21 +107,21 @@ def main():
             messages=[
                 {
                     'role': 'user',
-                    'content': "Give me 5 data points for given data class for Hollywood movies starring Tom Cruise. Respond to JSON format.",
+                    'content': "Give me 10 data points for given data class. Respond to JSON format.",
                 }
             ],
             model=MODEL_NAME,
-            format=MoviesList.model_json_schema()
+            format=DemographicsList.model_json_schema()
         )
         logging.info("TOKEN SPEED: %s tokens/s", format((response.eval_count / response.eval_duration)*(10**9), ".5g"))
         logging.info("FULL RESPONSE: %s", response)
-        country = MoviesList.model_validate_json(response.message.content)
+        country = DemographicsList.model_validate_json(response.message.content)
         logging.info(f"\n{country}")
         # json_data = json.dumps(country.model_dump(), indent=4)
         # with open(f"{DATA_DIR}/countries.json", "w") as file:
         #     file.write(json_data)
         #     file.close()
-        # save_data(country.model_dump(), f"{DATA_DIR}/countries.json")
+        save_data(country.model_dump(), f"{DATA_DIR}/demographics.json")
 
         ### Using ToolCall and Function classes for function calls to model
         do_function_calling = False
