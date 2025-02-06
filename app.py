@@ -3,7 +3,7 @@ from ollama import chat
 import logging
 from pydantic import BaseModel
 import time
-import datetime
+from datetime import datetime
 import json
 
 LOG_DIR = "logs"
@@ -57,8 +57,11 @@ def main():
         model=MODEL_NAME,
         format=DataList.model_json_schema()     
     )
-    logging.info("TOKEN SPEED: %s tokens/s", format((response.eval_count / response.eval_duration)*(10**9), ".5g"))
     logging.info(f"RESPONSE: {response}")
+    logging.info("TOKEN SPEED: %s tokens/s", format((response.eval_count / response.eval_duration)*(10**9), ".5g"))
+    data = DataList.model_validate_json(response.message.content)
+    logging.info(f"\n{data}")
+    save_data(data.model_dump(), file_path=f"{DATA_DIR}/data.json")
     logging.debug("Scrpit Ended")
 
 if __name__ == '__main__':
