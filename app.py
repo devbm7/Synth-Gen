@@ -38,6 +38,9 @@ def save_data(data: dict, file_path: str):
 class Data(BaseModel):
     ID: int
     column1: str
+    column2: str
+    date1: str
+    column3: int
 
 class DataList(BaseModel):
     data: list[Data]
@@ -51,7 +54,7 @@ def main():
         messages=[
             {
                 'role':'user',
-                'content':'Generate 5 datapoints for given dataclass. Here is more information about the dataclass. "ID" represents the identifier for the data entry. "column1" is about english first names.'
+                'content':'Generate 5 datapoints for given dataclass. Here is more information about the dataclass. "ID" represents the identifier for the data entry. "column1" is about english first names. "column2" represents the  surname for the person. "date1" represents their birthdate. "column3" is their age in years. '
             }
         ],
         model=MODEL_NAME,
