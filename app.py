@@ -41,6 +41,7 @@ class Data(BaseModel):
     column2: str
     date1: str
     column3: int
+    column4: str
 
 class DataList(BaseModel):
     data: list[Data]
@@ -54,7 +55,7 @@ def main():
         messages=[
             {
                 'role':'user',
-                'content':'Generate 5 datapoints for given dataclass. Here is more information about the dataclass. "ID" represents the identifier for the data entry. "column1" is about english first names. "column2" represents the  surname for the person. "date1" represents their birthdate. "column3" is their age in years. '
+                'content':'Generate 20 datapoints for given dataclass. Here is more information about the dataclass. "ID" represents the identifier for the data entry. "column1" is about english first names. "column2" represents the  surname for the person. "date1" represents their birthdate. "column3" is their age in years. Take current year as 2025. "column4" is their current job role. They can even be retired.'
             }
         ],
         model=MODEL_NAME,

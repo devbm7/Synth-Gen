@@ -117,10 +117,6 @@ def main():
         logging.info("FULL RESPONSE: %s", response)
         country = DemographicsList.model_validate_json(response.message.content)
         logging.info(f"\n{country}")
-        # json_data = json.dumps(country.model_dump(), indent=4)
-        # with open(f"{DATA_DIR}/countries.json", "w") as file:
-        #     file.write(json_data)
-        #     file.close()
         save_data(country.model_dump(), f"{DATA_DIR}/demographics.json")
 
         ### Using ToolCall and Function classes for function calls to model
