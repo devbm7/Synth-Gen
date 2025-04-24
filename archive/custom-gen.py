@@ -8,7 +8,7 @@ from pathlib import Path
 
 LOG_DIR = "logs"
 DATA_DIR = "data"
-MODEL_NAME = "gemma3:latest"
+MODEL_NAME = "llama3.2:3b"
 
 logging.basicConfig(
     filename=f"{LOG_DIR}/custom-gen.log",
@@ -16,6 +16,14 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+
+class Country(BaseModel):
+    country_name: str
+    country_capital: str
+    country_official_languages: list[str]
+
+class CountryList(BaseModel):
+    countries: list[Country]
 
 class Movies(BaseModel):
     movie_name: str
@@ -40,6 +48,45 @@ class Demographics(BaseModel):
 class DemographicsList(BaseModel):
     demographics: list[Demographics]
 
+class HeartAttack:
+    age: int
+    gender: str
+    region: str
+    smoking_history: bool
+    diabetes_history: bool
+    hypertension_history: bool
+    cholestrol_level: float
+
+class Heros(BaseModel):
+    hero_name: str
+    hero_power: str
+    hero_weakness: str
+    hero_origin_story: str
+
+class HerosList(BaseModel):
+    heroes: list[Heros]
+
+class ToolCall:
+    def __init__(self, function):
+        self.function = function
+
+class Function:
+    def __init__(self, name, arguments):
+        self.name = name
+        self.arguments = arguments
+
+def add_two_numbers(a: int, b: int) -> int:
+    '''
+    Addion of    two numbers
+
+    Args:
+    a: int: First number
+    b: int: Second number
+
+    Returns:
+    int: Sum of two numbers
+    '''
+    return a + b
 
 def load_existing_data(file_path: str) -> list:
     try:
@@ -79,7 +126,21 @@ def main():
         logging.info("FULL RESPONSE: %s", response)
         country = DemographicsList.model_validate_json(response.message.content)
         logging.info(f"\n{country}")
-        # save_data(country.model_dump(), f"{DATA_DIR}/demographics.json")
+        save_data(country.model_dump(), f"{DATA_DIR}/demographics.json")
+
+        ### Using ToolCall and Function classes for function calls to model
+        do_function_calling = False
+        if do_function_calling:
+            response = chat(model="gemma3:latest", tools=[add_two_numbers], messages=[{"role": "user", "content": "What is addition of 2 and 5?"}])
+            logging.debug("DEBUG ADD TWO NUMBERS RESPONSE: \n", response, "\n\n")
+            print("DEBUG ADD TWO NUMBERS RESPONSE: \n", response, "\n\n")
+            tool_call = response.message.tool_calls[0]
+            function = Function(tool_call.function.name, tool_call.function.arguments)
+            function_name = function.name
+            function_args = function.arguments
+            if function_name == "add_two_numbers":
+                result = add_two_numbers(int(function_args["a"]), int(function_args["b"]))
+                logging.info(f"Addition of {function_args} is {result}")
 
         logging.debug("Script Ended")
     except Exception as e:
