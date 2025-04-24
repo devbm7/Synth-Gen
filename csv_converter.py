@@ -2,7 +2,7 @@ import json
 import csv
 
 # Define the path to the input JSON file
-json_file_path = 'data/data.json'
+json_file_path = 'data/demo.json'
 
 # Read JSON data from the file
 with open(json_file_path, 'r') as json_file:
@@ -11,9 +11,9 @@ with open(json_file_path, 'r') as json_file:
 # Extract the list of data entries from the JSON data
 data_entries = []
 for entry in json_data:
-    data_entries.extend(entry['data']['data'])
+    data_entries.extend(entry['data']['demographics'])
 # Define the CSV file path
-csv_file_path = 'data/data.csv'
+csv_file_path = 'data/demo.csv'
 
 # Write data to CSV file
 with open(csv_file_path, mode='w', newline='') as csv_file:
