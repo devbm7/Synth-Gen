@@ -319,4 +319,4 @@ with tab3:
 
 # Footer
 st.markdown("---")
-st.markdown("Made with ❤️ by Your Synthetic Data Generator")
+st.markdown("Made with ❤️ by DevBM")
