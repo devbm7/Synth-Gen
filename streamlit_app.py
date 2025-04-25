@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # API configuration
-API_URL = "http://localhost:8000"  # Change if API is hosted elsewhere
+API_URL = "http://localhost:8000"
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 

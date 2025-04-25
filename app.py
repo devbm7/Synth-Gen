@@ -33,7 +33,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 app = FastAPI(
     title="Synthetic Data Generator API",
     description="API for generating synthetic data using LLMs",
-    version="1.0.0"
+    version="1.0.1"
 )
 
 # Data Types Enum
