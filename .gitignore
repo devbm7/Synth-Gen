@@ -1,5 +1,6 @@
 /v1
 .codegpt
+__pycache__/
 server_logs.log
 logs/
 data/
