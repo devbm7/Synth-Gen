@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field, create_model, field_validator
-from typing import Dict, List, Any, Optional, Type, Union
+from typing import Dict, List, Any, Optional, Type, Union, Annotated
 import uvicorn
 import time
 from datetime import datetime
@@ -142,7 +142,12 @@ async def generate_data_task(task_id: str, request: DataRequest):
         
         # Create dynamic model for validation
         data_model = construct_dynamic_model(request.columns)
-        list_model = create_model("DataList", data=List[data_model])
+        
+        # Fix: Properly annotate the data field when creating the list model
+        list_model = create_model(
+            "DataList", 
+            data=(List[data_model], Field(..., description="List of data items"))
+        )
         
         # Generate prompt
         prompt = generate_prompt(request.columns, request.rows)
