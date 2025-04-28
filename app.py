@@ -157,7 +157,7 @@ async def generate_data_task(task_id: str, request: DataRequest):
         response = chat(
             messages=[{"role": "user", "content": prompt}],
             model=request.model,
-            format=list_model.model_json_schema()
+            format=list_model.model_json_schema(),
         )
         
         logger.info(f"Received response from LLM for task {task_id}")
