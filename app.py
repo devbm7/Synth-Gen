@@ -1,22 +1,6 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from pydantic import BaseModel, Field, create_model, field_validator
-from typing import Dict, List, Any, Optional, Type, Union, Annotated
-import uvicorn
-import time
-from datetime import datetime
-import logging
-import json
-import os
-import uuid
-from enum import Enum
-from ollama import chat
-import asyncio
-from pathlib import Path
-import csv
 from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from pydantic import BaseModel, Field, create_model, field_validator
 from typing import Dict, List, Any, Optional, Type, Union, Annotated
-import pandas as pd
 import uvicorn
 import time
 from datetime import datetime
@@ -29,6 +13,8 @@ from ollama import chat
 import asyncio
 from pathlib import Path
 import csv
+import pandas as pd
+import asyncio
 
 
 # Configure logging
