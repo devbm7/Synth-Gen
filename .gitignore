@@ -5,3 +5,4 @@ server_logs.log
 logs/
 data/
 uploads/
+.env

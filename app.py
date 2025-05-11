@@ -15,7 +15,16 @@ from pathlib import Path
 import csv
 import pandas as pd
 import asyncio
+import google.generativeai as genai
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
+# Configure Google GenAI
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
 
 # Configure logging
 logging.basicConfig(
@@ -42,6 +51,10 @@ app = FastAPI(
 )
 
 # Data Types Enum
+class ModelProvider(str, Enum):
+    OLLAMA = "ollama"
+    GOOGLE = "google"
+
 class DataType(str, Enum):
     STRING = "string"
     INTEGER = "integer"
@@ -72,6 +85,7 @@ class DataRequest(BaseModel):
     columns: List[DataColumn] = Field(..., description="Column definitions")
     rows: int = Field(..., description="Number of rows to generate", gt=0)
     model: str = Field("gemma3:latest", description="LLM model to use")
+    model_provider: ModelProvider = Field(ModelProvider.OLLAMA, description="LLM provider to use")
     batch_size: int = Field(10, description="Batch size for generation", gt=0)
     parallel: bool = Field(False, description="Enable parallel processing")
 
@@ -153,6 +167,102 @@ def generate_prompt(columns: List[DataColumn], rows: int) -> str:
     return prompt
 
 
+async def generate_data_with_ollama(prompt: str, model: str, format_schema: dict) -> str:
+    """Generate data using Ollama."""
+    response = chat(
+        messages=[{"role": "user", "content": prompt}],
+        model=model,
+        format=format_schema,
+    )
+    return response.message.content
+
+async def generate_data_with_google(prompt: str, model: str, format_schema: dict) -> str:
+    """Generate data using Google GenAI."""
+    try:
+        # Configure the model
+        generation_config = {
+            "temperature": 0.7,
+            "top_p": 0.8,
+            "top_k": 40,
+            "max_output_tokens": 2048,
+        }
+        
+        # Add explicit JSON formatting instructions to the prompt
+        json_prompt = f"""Please generate the data in valid JSON format. The response should be a JSON object with a "data" field containing an array of objects.
+{prompt}
+
+IMPORTANT: Your response must be a valid JSON object with this exact structure:
+{{
+    "data": [
+        {{ ... object 1 ... }},
+        {{ ... object 2 ... }},
+        ...
+    ]
+}}
+
+Do not include any text before or after the JSON object."""
+
+        model = genai.GenerativeModel(
+            model_name=model,
+            generation_config=generation_config
+        )
+        
+        # Generate response
+        response = model.generate_content(json_prompt)
+        
+        # Extract the text from the response
+        response_text = response.text.strip()
+        
+        # Basic JSON validation and cleanup
+        try:
+            # Try to parse the response as JSON to validate it
+            parsed_json = json.loads(response_text)
+            
+            # If the response is a list, wrap it in the expected structure
+            if isinstance(parsed_json, list):
+                parsed_json = {"data": parsed_json}
+                return json.dumps(parsed_json)
+            
+            # If the response is already an object but missing the data field
+            if isinstance(parsed_json, dict) and "data" not in parsed_json:
+                # Try to find a list in the response and use it as data
+                for key, value in parsed_json.items():
+                    if isinstance(value, list):
+                        return json.dumps({"data": value})
+            
+            return response_text
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON response from Google GenAI: {e}")
+            # logger.error(f"Raw response: {response_text}")
+            
+            # Try to fix common JSON formatting issues
+            try:
+                # Remove any text before the first '{' or '[' and after the last '}' or ']'
+                start_idx = min(
+                    response_text.find('{') if response_text.find('{') != -1 else float('inf'),
+                    response_text.find('[') if response_text.find('[') != -1 else float('inf')
+                )
+                end_idx = max(
+                    response_text.rfind('}') + 1 if response_text.rfind('}') != -1 else -1,
+                    response_text.rfind(']') + 1 if response_text.rfind(']') != -1 else -1
+                )
+                
+                if start_idx != float('inf') and end_idx != -1:
+                    cleaned_json = response_text[start_idx:end_idx]
+                    # Try to parse and fix the structure
+                    parsed_json = json.loads(cleaned_json)
+                    if isinstance(parsed_json, list):
+                        parsed_json = {"data": parsed_json}
+                    return json.dumps(parsed_json)
+            except:
+                pass
+            
+            raise ValueError(f"Failed to generate valid JSON response: {str(e)}")
+            
+    except Exception as e:
+        logger.error(f"Error generating data with Google GenAI: {e}")
+        raise e
+
 async def generate_data_task(task_id: str, request: DataRequest):
     """Background task to generate data using LLM."""
     try:
@@ -172,18 +282,25 @@ async def generate_data_task(task_id: str, request: DataRequest):
         prompt = generate_prompt(request.columns, request.rows)
         logger.debug(f"Generated prompt: {prompt}")
         
-        # Call LLM
-        response = chat(
-            messages=[{"role": "user", "content": prompt}],
-            model=request.model,
-            format=list_model.model_json_schema(),
-        )
+        # Call appropriate LLM based on provider
+        if request.model_provider == ModelProvider.OLLAMA:
+            response_content = await generate_data_with_ollama(
+                prompt, 
+                request.model, 
+                list_model.model_json_schema()
+            )
+        else:  # Google GenAI
+            response_content = await generate_data_with_google(
+                prompt, 
+                request.model, 
+                list_model.model_json_schema()
+            )
         
         logger.info(f"Received response from LLM for task {task_id}")
         
         # Validate response
         try:
-            data = list_model.model_validate_json(response.message.content).data
+            data = list_model.model_validate_json(response_content).data
             
             # Save result to file
             result_file = f"{DATA_DIR}/{task_id}.json"

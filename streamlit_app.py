@@ -9,7 +9,16 @@ from datetime import datetime
 from io import StringIO, BytesIO
 from typing import List, Dict, Any, Optional
 import logging
+import google.generativeai as genai
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
+# Configure Google GenAI if API key is available
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -70,6 +79,18 @@ DATA_TYPES = [
     "city", "zip", "url", "list"
 ]
 
+# Define model providers and their available models
+MODEL_PROVIDERS = {
+    "ollama": {
+        "name": "Ollama",
+        "models": ["gemma3:latest", "llama2:latest", "mistral:latest"]
+    },
+    "google": {
+        "name": "Google GenAI",
+        "models": ["gemini-2.0-flash"]
+    }
+}
+
 # App state
 if 'columns' not in st.session_state:
     st.session_state.columns = []
@@ -103,8 +124,16 @@ st.markdown("Generate realistic synthetic data using LLM models")
 with st.sidebar:
     st.header("Configuration")
     
-    # LLM Model
-    model = st.text_input("LLM Model", "gemma3:latest")
+    # Model Provider Selection
+    provider = st.selectbox(
+        "LLM Provider",
+        options=list(MODEL_PROVIDERS.keys()),
+        format_func=lambda x: MODEL_PROVIDERS[x]["name"]
+    )
+    
+    # LLM Model selection based on provider
+    available_models = MODEL_PROVIDERS[provider]["models"]
+    model = st.selectbox("LLM Model", available_models)
     
     # Number of rows
     num_rows = st.number_input("Number of rows", min_value=1, value=10)
@@ -198,6 +227,7 @@ with tab1:
                         "columns": st.session_state.columns,
                         "rows": num_rows,
                         "model": model,
+                        "model_provider": provider,
                         "batch_size": batch_size,
                         "parallel": parallel
                     }
@@ -408,6 +438,7 @@ with tab4:
                         "file_id": st.session_state.uploaded_file_id,
                         "rows": rows_to_append,
                         "model": model,
+                        "model_provider": provider,
                         "batch_size": batch_size,
                         "parallel": parallel
                     }
