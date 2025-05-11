@@ -4,3 +4,4 @@ __pycache__/
 server_logs.log
 logs/
 data/
+uploads/
