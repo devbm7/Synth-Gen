@@ -2,7 +2,7 @@
 
 A powerful tool for generating realistic synthetic data using Large Language Models (LLMs). This project consists of a FastAPI backend and a Streamlit frontend that work together to create customizable synthetic datasets for development, testing, and training purposes.
 
-![Synthetic Data Generator](https://via.placeholder.com/800x400?text=Synthetic+Data+Generator)
+<!-- ![Synthetic Data Generator](https://via.placeholder.com/800x400?text=Synthetic+Data+Generator) -->
 
 ## Features
 
