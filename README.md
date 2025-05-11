@@ -2,7 +2,7 @@
 
 A powerful tool for generating realistic synthetic data using Large Language Models (LLMs). This project consists of a FastAPI backend and a Streamlit frontend that work together to create customizable synthetic datasets for development, testing, and training purposes.
 
-<!-- ![Synthetic Data Generator](https://via.placeholder.com/800x400?text=Synthetic+Data+Generator) -->
+![Synthetic Data Generator](resources/diagram.png)
 
 ## Features
 
@@ -111,14 +111,14 @@ The API documentation is available at http://localhost:8000/docs when the backen
 
 ## Key Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/generate` | POST | Generate synthetic data based on column definitions |
-| `/task/{task_id}` | GET | Get the status of a generation task |
-| `/data/{task_id}` | GET | Get the generated data for a completed task |
-| `/convert_to_csv/{task_id}` | POST | Convert JSON result to CSV |
-| `/upload_csv` | POST | Upload and analyze a CSV file |
-| `/append_data` | POST | Generate additional data matching an uploaded CSV |
+| Endpoint                      | Method | Description                                         |
+| ----------------------------- | ------ | --------------------------------------------------- |
+| `/generate`                 | POST   | Generate synthetic data based on column definitions |
+| `/task/{task_id}`           | GET    | Get the status of a generation task                 |
+| `/data/{task_id}`           | GET    | Get the generated data for a completed task         |
+| `/convert_to_csv/{task_id}` | POST   | Convert JSON result to CSV                          |
+| `/upload_csv`               | POST   | Upload and analyze a CSV file                       |
+| `/append_data`              | POST   | Generate additional data matching an uploaded CSV   |
 
 ## Data Types
 
