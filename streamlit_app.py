@@ -83,7 +83,7 @@ DATA_TYPES = [
 MODEL_PROVIDERS = {
     "ollama": {
         "name": "Ollama",
-        "models": ["gemma3:latest", "llama2:latest", "mistral:latest"]
+        "models": ["gemma3:latest", "llama3.2:1b"]
     },
     "google": {
         "name": "Google GenAI",
